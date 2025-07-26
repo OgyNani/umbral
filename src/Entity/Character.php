@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\CharacterRepository;
+use App\Entity\Location;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -39,11 +40,15 @@ class Character
     #[ORM\Column]
     private ?int $hp = 100;
 
+    #[ORM\Column]
+    private ?int $maxHp = 100;
+
     #[ORM\Column(type: 'json')]
     private array $stats = [];
 
-    #[ORM\Column(length: 255)]
-    private ?string $location = 'city';
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Location $location = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $created_at = null;
@@ -98,6 +103,17 @@ class Character
         $this->sex = $sex;
         return $this;
     }
+    
+    public function getGender(): ?string
+    {
+        return $this->sex;
+    }
+
+    public function setGender(string $gender): static
+    {
+        $this->sex = $gender;
+        return $this;
+    }
 
     public function getClass(): ?CharacterClass
     {
@@ -142,6 +158,17 @@ class Character
         $this->hp = $hp;
         return $this;
     }
+    
+    public function getMaxHp(): ?int
+    {
+        return $this->maxHp;
+    }
+
+    public function setMaxHp(int $maxHp): static
+    {
+        $this->maxHp = $maxHp;
+        return $this;
+    }
 
     public function getStats(): array
     {
@@ -154,12 +181,12 @@ class Character
         return $this;
     }
 
-    public function getLocation(): ?string
+    public function getLocation(): ?Location
     {
         return $this->location;
     }
 
-    public function setLocation(string $location): static
+    public function setLocation(?Location $location): static
     {
         $this->location = $location;
         return $this;

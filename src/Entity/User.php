@@ -89,4 +89,19 @@ class User
         }
         return $this;
     }
+    
+    public function getCharacter(): ?Character
+    {
+        if ($this->current_character_id === null) {
+            return $this->characters->isEmpty() ? null : $this->characters->first();
+        }
+        
+        foreach ($this->characters as $character) {
+            if ($character->getId() === $this->current_character_id) {
+                return $character;
+            }
+        }
+        
+        return null;
+    }
 }
