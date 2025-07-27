@@ -253,11 +253,13 @@ class CharacterCreationService
         $this->setCreationState($chatId, $creationState);
         
         $baseStats = $class->getBaseStats();
+        $maxBaseStats = $class->getMaxBaseStats();
         $statsText = "";
         
-        if (is_array($baseStats)) {
+        if (is_array($baseStats) && is_array($maxBaseStats)) {
             foreach ($baseStats as $stat => $value) {
-                $statsText .= ucfirst($stat) . ": " . $value . "\n";
+                $maxValue = $maxBaseStats[$stat] ?? '?';
+                $statsText .= ucfirst($stat) . ": " . $value . " / " . $maxValue . " (max)\n";
             }
         }
         

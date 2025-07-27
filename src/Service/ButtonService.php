@@ -9,6 +9,7 @@ class ButtonService
 {
     // Константы для кнопок
     public const BUTTON_CHARACTER = '👤 Character';
+    public const BUTTON_USER = '👤 User';
     public const BUTTON_INVENTORY = '🎒 Inventory';
     public const BUTTON_SHOP = '🏪 Shop';
     public const BUTTON_MARKET = '🏪 Market';
@@ -48,7 +49,7 @@ class ButtonService
     private function getCityKeyboard(): ReplyKeyboardMarkup
     {
         return new ReplyKeyboardMarkup([
-            [self::BUTTON_CHARACTER, self::BUTTON_INVENTORY],
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
             [self::BUTTON_SHOP, self::BUTTON_MARKET],
             [self::BUTTON_HOUSE, self::BUTTON_GUILD_HALL],
             [self::BUTTON_MAP, self::BUTTON_DUNGEON]
@@ -61,7 +62,7 @@ class ButtonService
     private function getDungeonKeyboard(): ReplyKeyboardMarkup
     {
         return new ReplyKeyboardMarkup([
-            [self::BUTTON_CHARACTER, self::BUTTON_INVENTORY],
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
             [self::BUTTON_FIGHT, self::BUTTON_EXIT_DUNGEON]
         ], true, true, true);
     }
@@ -72,7 +73,7 @@ class ButtonService
     private function getWorldKeyboard(): ReplyKeyboardMarkup
     {
         return new ReplyKeyboardMarkup([
-            [self::BUTTON_CHARACTER, self::BUTTON_INVENTORY],
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
             [self::BUTTON_FIGHT, self::BUTTON_MAP]
         ], true, true, true);
     }
@@ -83,7 +84,7 @@ class ButtonService
     private function getDefaultKeyboard(): ReplyKeyboardMarkup
     {
         return new ReplyKeyboardMarkup([
-            [self::BUTTON_CHARACTER, self::BUTTON_INVENTORY],
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
             [self::BUTTON_EXPLORE, self::BUTTON_FIGHT],
             [self::BUTTON_SHOP, self::BUTTON_HELP]
         ], true, true, true);
@@ -108,6 +109,7 @@ class ButtonService
         // Базовые кнопки, доступные во всех локациях
         $buttons = [
             self::BUTTON_CHARACTER,
+            self::BUTTON_USER,
             self::BUTTON_INVENTORY
         ];
         

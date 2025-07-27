@@ -24,6 +24,12 @@ class User
 
     #[ORM\Column]
     private ?\DateTimeImmutable $created_at = null;
+    
+    #[ORM\Column(type: 'bigint', options: ["default" => 0])]
+    private ?string $gold = '0';
+    
+    #[ORM\Column(type: 'bigint', options: ["default" => 0])]
+    private ?string $emeralds = '0';
 
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: Character::class)]
     private Collection $characters;
@@ -64,6 +70,28 @@ class User
     public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->created_at;
+    }
+    
+    public function getGold(): string
+    {
+        return $this->gold ?? '0';
+    }
+    
+    public function setGold(string $gold): static
+    {
+        $this->gold = $gold;
+        return $this;
+    }
+    
+    public function getEmeralds(): string
+    {
+        return $this->emeralds ?? '0';
+    }
+    
+    public function setEmeralds(string $emeralds): static
+    {
+        $this->emeralds = $emeralds;
+        return $this;
     }
 
     public function getCharacters(): Collection

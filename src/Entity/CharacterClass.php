@@ -20,6 +20,9 @@ class CharacterClass
     #[ORM\Column(type: 'json')]
     private array $base_stats = [];
 
+    #[ORM\Column(type: 'json')]
+    private array $max_base_stats = [];
+
     public function getId(): ?int
     {
         return $this->id;
@@ -44,6 +47,17 @@ class CharacterClass
     public function setBaseStats(array $base_stats): static
     {
         $this->base_stats = $base_stats;
+        return $this;
+    }
+
+    public function getMaxBaseStats(): array
+    {
+        return $this->max_base_stats;
+    }
+
+    public function setMaxBaseStats(array $max_base_stats): static
+    {
+        $this->max_base_stats = $max_base_stats;
         return $this;
     }
 }

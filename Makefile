@@ -1,4 +1,4 @@
-.PHONY: help install update db-update db-migrate db-create db-drop cache-clear local docker-build docker-up docker-down docker-logs docker-exec docker-db-setup docker-composer-install docker-create-classes docker-telegram-setup docker-ngrok docker-telegram-poll
+.PHONY: help install update db-update db-migrate db-create db-drop cache-clear local docker-build docker-up docker-down docker-logs docker-exec docker-db-setup docker-composer-install docker-create-classes docker-telegram-setup docker-ngrok docker-telegram-poll docker-healing-daemon docker-restart-all
 
 help:
 	@echo "Доступные команды:"
@@ -23,6 +23,8 @@ help:
 	@echo "make docker-telegram-setup - Настроить Telegram webhook"
 	@echo "make docker-ngrok - Запустить ngrok туннель для Telegram webhook"
 	@echo "make docker-telegram-poll - Запустить Telegram бота в режиме polling (для локальной разработки)"
+	@echo "make docker-healing-daemon - Запустить фоновый процесс лечения персонажей"
+	@echo "make docker-restart-all - Перезапустить все сервисы и настроить webhook"
 
 install:
 	composer install
@@ -107,6 +109,11 @@ docker-telegram-poll:
 	@echo "Запуск Telegram бота в режиме polling..."
 	docker-compose exec php bin/console app:telegram:poll --timeout=60 -vv
 
+# Запуск фонового процесса лечения
+docker-healing-daemon:
+	@echo "Запуск фонового процесса лечения персонажей..."
+	docker-compose exec php bin/console app:healing:process --daemon --interval=10 -vv
+
 # Автоматическая настройка Telegram webhook
 docker-setup-telegram-webhook:
 	@echo "Запуск ngrok в фоновом режиме..."
@@ -132,3 +139,24 @@ docker-setup-telegram-webhook:
 		echo "Затем настройте токен:"; \
 		echo "ngrok config add-authtoken YOUR_AUTHTOKEN"; \
 	fi
+
+# Полный перезапуск и настройка всех сервисов
+docker-restart-all:
+	@echo "Перезапуск всех контейнеров..."
+	docker-compose restart
+	@echo "Контейнеры перезапущены. Настраиваем webhook..."
+	@$(MAKE) docker-setup-telegram-webhook
+	@echo "Webhook настроен. Запускаем фоновый процесс лечения..."
+	@if [ "$(shell uname)" = "Darwin" ]; then \
+		osascript -e 'tell application "Terminal" to do script "cd $(CURDIR) && make docker-healing-daemon"' || \
+		echo "Не удалось автоматически запустить процесс лечения в новом терминале."; \
+	elif [ "$(shell uname)" = "Linux" ]; then \
+		gnome-terminal -- bash -c "cd $(CURDIR) && make docker-healing-daemon" || \
+		terminal -- bash -c "cd $(CURDIR) && make docker-healing-daemon" || \
+		xterm -e "cd $(CURDIR) && make docker-healing-daemon" || \
+		echo "Не удалось автоматически запустить процесс лечения в новом терминале."; \
+	else \
+		echo "Не удалось определить операционную систему. Запустите процесс лечения вручную."; \
+	fi
+	@echo "Настройка завершена! Бот готов к работе."
+	@echo "Для запуска процесса лечения вручную используйте команду: make docker-healing-daemon"

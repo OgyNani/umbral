@@ -12,6 +12,8 @@ use App\Service\CharacterCreationService;
 use App\Service\ButtonService;
 use App\Service\ButtonHandlerService;
 use App\Service\LocationService;
+use App\Service\CombatService;
+use App\Service\HealingService;
 use App\Service\GameTextService as Text;
 use Psr\Log\LoggerInterface;
 
@@ -22,6 +24,8 @@ class TelegramController extends AbstractController
     private ButtonService $buttonService;
     private ButtonHandlerService $buttonHandlerService;
     private LocationService $locationService;
+    private CombatService $combatService;
+    private HealingService $healingService;
     private LoggerInterface $logger;
 
     public function __construct(
@@ -29,6 +33,8 @@ class TelegramController extends AbstractController
         ButtonService $buttonService, 
         ButtonHandlerService $buttonHandlerService, 
         LocationService $locationService,
+        CombatService $combatService,
+        HealingService $healingService,
         LoggerInterface $logger
     ) {
         $this->botApi = new BotApi($_ENV['TELEGRAM_BOT_TOKEN']);
@@ -36,6 +42,8 @@ class TelegramController extends AbstractController
         $this->buttonService = $buttonService;
         $this->buttonHandlerService = $buttonHandlerService;
         $this->locationService = $locationService;
+        $this->combatService = $combatService;
+        $this->healingService = $healingService;
         $this->logger = $logger;
     }
 
@@ -69,7 +77,11 @@ class TelegramController extends AbstractController
         $username = $message['from']['username'] ?? null;
         $firstName = $message['from']['first_name'] ?? null;
         
+        // Детальное логирование для отладки
         $this->logger->info(sprintf('Processing message: [%s] from chat_id: %d, username: %s', $text, $chatId, $username));
+        $this->logger->info('Raw message text: "' . $text . '"');
+        $this->logger->info('Message text length: ' . strlen($text));
+        $this->logger->info('Message text hex: ' . bin2hex($text));
 
         if ($text === '/start') {
             $this->logger->info('Received /start command. Starting character creation.');
@@ -85,12 +97,31 @@ class TelegramController extends AbstractController
                 // Try to process the message in the character creation flow
                 $handled = $this->characterCreationService->handleCharacterCreationMessage($chatId, $text);
                 
-                // If the message was not handled in the character creation process, check if it's a button command
+                // If the message was not handled in the character creation process, check if it's a combat-related message
+                if (!$handled) {
+                    // Check if it's a body part selection for combat (case-insensitive)
+                    if (in_array(strtolower($text), array_map('strtolower', CombatService::BODY_PARTS)) || $text === '❌ Cancel Search') {
+                        $character = $this->characterCreationService->getActiveCharacter($chatId);
+                        if ($character) {
+                            $this->buttonHandlerService->handleButtonCommand($chatId, $text, $character);
+                            $handled = true;
+                        }
+                    }
+                }
+                
+                // If not handled by character creation or combat, check if it's a regular button command
                 if (!$handled) {
                     // Get the active character and its location
                     $character = $this->characterCreationService->getActiveCharacter($chatId);
                     
                     if ($character) {
+                        // Process healing if not in combat
+                        try {
+                            $this->healingService->processHealing($chatId, $character);
+                        } catch (\Exception $e) {
+                            $this->logger->error('Error processing healing: ' . $e->getMessage());
+                        }
+
                         // Проверяем кнопку Back специально, чтобы она работала всегда
                         if ($text === ButtonService::BUTTON_BACK) {
                             $this->buttonHandlerService->handleButtonCommand($chatId, $text, $character);
@@ -111,6 +142,9 @@ class TelegramController extends AbstractController
                                 $this->botApi->sendMessage($chatId, "This action is not available in your current location.");
                             }
                         }
+                    } else if ($this->combatService->isInCombat($chatId)) {
+                        // If in combat, inform the user they can only use combat commands
+                        $this->botApi->sendMessage($chatId, "You are in combat and can only use combat commands.");
                     } else {
                         // No active character, send unknown command message
                         $this->botApi->sendMessage($chatId, sprintf(Text::UNKNOWN_COMMAND, $text));
@@ -127,6 +161,13 @@ class TelegramController extends AbstractController
         $chatId = $callbackQuery['message']['chat']['id'];
         
         $this->logger->info(sprintf('Processing callback query: %s from chat_id: %d', $callbackData, $chatId));
+        
+        // Check if the user is in combat
+        if ($this->combatService->isInCombat($chatId)) {
+            // Don't process other callbacks during combat
+            $this->botApi->answerCallbackQuery($callbackQuery['id'], 'You are in combat and cannot perform this action.');
+            return;
+        }
         
         // Try to handle the callback in the character creation flow
         $handled = $this->characterCreationService->handleCharacterCreationCallback($chatId, $callbackData, $callbackQuery['id']);

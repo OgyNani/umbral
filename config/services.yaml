@@ -29,3 +29,14 @@ services:
     TelegramBot\Api\BotApi:
         arguments:
             $token: '%telegram_bot_token%'
+            
+    # Redis client for session storage
+    Redis:
+        class: Redis
+        calls:
+            - [connect, ['redis', 6379]]
+            
+    # Redis session handler
+    Symfony\Component\HttpFoundation\Session\Storage\Handler\RedisSessionHandler:
+        arguments: ['@Redis']
+        public: true

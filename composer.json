@@ -15,7 +15,8 @@
         "symfony/framework-bundle": "6.4.*",
         "symfony/runtime": "6.4.*",
         "symfony/yaml": "6.4.*",
-        "telegram-bot/api": "^2.5"
+        "telegram-bot/api": "^2.5",
+        "predis/predis": "^2.2"
     },
     "require-dev": {
         "symfony/maker-bundle": "*"

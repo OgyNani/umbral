@@ -3,10 +3,12 @@
 namespace App\Service;
 
 use App\Entity\Character;
+use App\Entity\User;
 use TelegramBot\Api\BotApi;
 use TelegramBot\Api\Types\ReplyKeyboardMarkup;
 use Psr\Log\LoggerInterface;
 use App\Service\ButtonService;
+use App\Service\CombatService;
 
 class ButtonHandlerService
 {
@@ -14,13 +16,20 @@ class ButtonHandlerService
     private LoggerInterface $logger;
     private LocationService $locationService;
     private ButtonService $buttonService;
+    private CombatService $combatService;
     
-    public function __construct(BotApi $botApi, LoggerInterface $logger, LocationService $locationService, ButtonService $buttonService)
+    public function __construct(
+        BotApi $botApi, 
+        LoggerInterface $logger, 
+        LocationService $locationService, 
+        ButtonService $buttonService,
+        CombatService $combatService)
     {
         $this->botApi = $botApi;
         $this->logger = $logger;
         $this->locationService = $locationService;
         $this->buttonService = $buttonService;
+        $this->combatService = $combatService;
     }
     
     /**
@@ -28,11 +37,58 @@ class ButtonHandlerService
      */
     public function handleButtonCommand(int $chatId, string $buttonText, Character $character): void
     {
+        // Детальное логирование для отладки
+        $this->logger->info('Handling button command: "' . $buttonText . '"');
+        $this->logger->info('Button text length: ' . strlen($buttonText));
+        $this->logger->info('Button text hex: ' . bin2hex($buttonText));
+        
         $this->logger->info(sprintf('Handling button command: %s for character %s', $buttonText, $character->getName()));
+        
+        // Check if character is in combat
+        if ($this->combatService->isInCombat($chatId) && 
+            $buttonText !== '❌ Cancel Search' && 
+            !in_array($buttonText, CombatService::BODY_PARTS)) {
+            $this->botApi->sendMessage(
+                $chatId,
+                'You are in combat and cannot perform other actions!',
+                null,
+                false
+            );
+            return;
+        }
+        
+        // Handle combat-specific buttons
+        if ($buttonText === '❌ Cancel Search') {
+            $this->combatService->cancelCombatSearch($chatId, $character);
+            return;
+        }
+        
+        // Check if the button is a body part selection for combat (case-insensitive)
+        foreach (CombatService::BODY_PARTS as $part) {
+            if (strcasecmp($buttonText, $part) === 0) {
+                // Нашли совпадение части тела
+                $combatState = $this->combatService->getCombatState($chatId);
+                if ($combatState && $combatState['state'] === CombatService::STATE_ATTACK_POINT_SELECTION) {
+                    $this->combatService->handleAttackPointSelection($chatId, $part);
+                    return;
+                } elseif ($combatState && $combatState['state'] === CombatService::STATE_DEFENSE_POINT_SELECTION) {
+                    $this->combatService->handleDefensePointSelection($chatId, $part);
+                    return;
+                }
+                
+                // Если мы дошли сюда, значит часть тела распознана, но состояние боя неверное
+                $this->botApi->sendMessage($chatId, "You need to start combat first with the Fight command.");
+                return;
+            }
+        }
         
         switch ($buttonText) {
             case ButtonService::BUTTON_CHARACTER:
                 $this->handleCharacterInfo($chatId, $character);
+                break;
+
+            case ButtonService::BUTTON_USER:
+                $this->handleUserInfo($chatId, $character);
                 break;
                 
             case ButtonService::BUTTON_INVENTORY:
@@ -88,6 +144,37 @@ class ButtonHandlerService
                 break;
         }
     }
+
+    private function handleUserInfo(int $chatId, Character $character): void
+    {
+        $user = $character->getUser();
+        if (!$user) {
+            $this->botApi->sendMessage(
+                $chatId,
+                "Error: User information not available.",
+                null,
+                false,
+                null,
+                $this->buttonService->getKeyboardForLocation($character->getLocation())
+            );
+            return;
+        }
+        
+        $this->botApi->sendMessage(
+            $chatId,
+            sprintf(
+                "User Info:\n\nName: %s\nCreated At: %s\nGold: %s\nEmeralds: %s",
+                $user->getCharacter() ? $user->getCharacter()->getName() : $character->getName(),
+                $user->getCreatedAt()->format('Y-m-d H:i:s'),
+                $user->getGold(),
+                $user->getEmeralds()
+            ),
+            null,
+            false,
+            null,
+            $this->buttonService->getKeyboardForLocation($character->getLocation())
+        );
+    }
     
     /**
      * Показать информацию о персонаже
@@ -108,10 +195,12 @@ class ButtonHandlerService
         $this->botApi->sendMessage(
             $chatId,
             sprintf(
-                "Character Info:\n\nName: %s\nClass: %s\nLevel: %d\nHP: %d/%d\nGender: %s\n\nStats:\n%s\nLocation: %s",
+                "Character Info:\n\nName: %s\nGold: %s\nClass: %s\nLevel: %d\nExp: %d\nHP: %d/%d\nGender: %s\n\nStats:\n%s\nLocation: %s",
                 $character->getName(),
+                $character->getGold(),
                 $character->getClass()->getName(),
                 $character->getLevel(),
+                $character->getExp(),
                 $character->getHp(),
                 $character->getMaxHp(),
                 $character->getSex(),
@@ -248,14 +337,11 @@ class ButtonHandlerService
      */
     private function handleFight(int $chatId, Character $character): void
     {
-        $this->botApi->sendMessage(
-            $chatId, 
-            "Combat system coming soon!",
-            null,
-            false,
-            null,
-            $this->buttonService->getKeyboardForLocation($character->getLocation())
-        );
+        $this->logger->info(sprintf('Starting combat for character %s in location %s', 
+            $character->getName(), $character->getLocation()->getName()));
+            
+        // Start combat search
+        $this->combatService->startCombatSearch($chatId, $character);
     }
     
     /**
@@ -330,8 +416,7 @@ class ButtonHandlerService
             sprintf("Unknown command: %s", $command),
             null,
             false,
-            null,
-            $this->buttonService->getKeyboardForLocation($character->getLocation())
+            null
         );
     }
 }

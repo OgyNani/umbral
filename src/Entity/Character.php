@@ -45,6 +45,9 @@ class Character
 
     #[ORM\Column(type: 'json')]
     private array $stats = [];
+    
+    #[ORM\Column(type: 'bigint', options: ["default" => 0])]
+    private ?string $gold = '0';
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
@@ -178,6 +181,17 @@ class Character
     public function setStats(array $stats): static
     {
         $this->stats = $stats;
+        return $this;
+    }
+    
+    public function getGold(): string
+    {
+        return $this->gold ?? '0';
+    }
+    
+    public function setGold(string $gold): static
+    {
+        $this->gold = $gold;
         return $this;
     }
 

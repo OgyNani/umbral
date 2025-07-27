@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "06ca637b8c11a3d76821d9a735d28721",
+    "content-hash": "fafd391521969b6b97b596651cff1c7f",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -94,21 +94,21 @@
         },
         {
             "name": "doctrine/dbal",
-            "version": "4.2.5",
+            "version": "4.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/doctrine/dbal.git",
-                "reference": "acb68b388b2577bb211bb26dc22d20a8ad93d97d"
+                "reference": "ac336c95ea9e13433d56ca81c308b39db0e1a2a7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/doctrine/dbal/zipball/acb68b388b2577bb211bb26dc22d20a8ad93d97d",
-                "reference": "acb68b388b2577bb211bb26dc22d20a8ad93d97d",
+                "url": "https://api.github.com/repos/doctrine/dbal/zipball/ac336c95ea9e13433d56ca81c308b39db0e1a2a7",
+                "reference": "ac336c95ea9e13433d56ca81c308b39db0e1a2a7",
                 "shasum": ""
             },
             "require": {
-                "doctrine/deprecations": "^0.5.3|^1",
-                "php": "^8.1",
+                "doctrine/deprecations": "^1.1.5",
+                "php": "^8.2",
                 "psr/cache": "^1|^2|^3",
                 "psr/log": "^1|^2|^3"
             },
@@ -119,7 +119,7 @@
                 "phpstan/phpstan": "2.1.17",
                 "phpstan/phpstan-phpunit": "2.0.6",
                 "phpstan/phpstan-strict-rules": "^2",
-                "phpunit/phpunit": "10.5.46",
+                "phpunit/phpunit": "11.5.23",
                 "slevomat/coding-standard": "8.16.2",
                 "squizlabs/php_codesniffer": "3.13.1",
                 "symfony/cache": "^6.3.8|^7.0",
@@ -180,7 +180,7 @@
             ],
             "support": {
                 "issues": "https://github.com/doctrine/dbal/issues",
-                "source": "https://github.com/doctrine/dbal/tree/4.2.5"
+                "source": "https://github.com/doctrine/dbal/tree/4.3.1"
             },
             "funding": [
                 {
@@ -196,7 +196,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-06-26T22:51:46+00:00"
+            "time": "2025-07-22T10:09:51+00:00"
         },
         {
             "name": "doctrine/deprecations",
@@ -1124,6 +1124,68 @@
                 "source": "https://github.com/doctrine/sql-formatter/tree/1.5.2"
             },
             "time": "2025-01-24T11:45:48+00:00"
+        },
+        {
+            "name": "predis/predis",
+            "version": "v2.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/predis/predis.git",
+                "reference": "f49e13ee3a2a825631562aa0223ac922ec5d058b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/predis/predis/zipball/f49e13ee3a2a825631562aa0223ac922ec5d058b",
+                "reference": "f49e13ee3a2a825631562aa0223ac922ec5d058b",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.2 || ^8.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.3",
+                "phpstan/phpstan": "^1.9",
+                "phpunit/phpcov": "^6.0 || ^8.0",
+                "phpunit/phpunit": "^8.0 || ^9.4"
+            },
+            "suggest": {
+                "ext-relay": "Faster connection with in-memory caching (>=0.6.2)"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Predis\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Till Krüss",
+                    "homepage": "https://till.im",
+                    "role": "Maintainer"
+                }
+            ],
+            "description": "A flexible and feature-complete Redis/Valkey client for PHP.",
+            "homepage": "http://github.com/predis/predis",
+            "keywords": [
+                "nosql",
+                "predis",
+                "redis"
+            ],
+            "support": {
+                "issues": "https://github.com/predis/predis/issues",
+                "source": "https://github.com/predis/predis/tree/v2.4.0"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/sponsors/tillkruss",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-04-30T15:16:02+00:00"
         },
         {
             "name": "psr/cache",
@@ -3851,16 +3913,16 @@
     "packages-dev": [
         {
             "name": "nikic/php-parser",
-            "version": "v5.5.0",
+            "version": "v5.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nikic/PHP-Parser.git",
-                "reference": "ae59794362fe85e051a58ad36b289443f57be7a9"
+                "reference": "221b0d0fdf1369c71047ad1d18bb5880017bbc56"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/ae59794362fe85e051a58ad36b289443f57be7a9",
-                "reference": "ae59794362fe85e051a58ad36b289443f57be7a9",
+                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/221b0d0fdf1369c71047ad1d18bb5880017bbc56",
+                "reference": "221b0d0fdf1369c71047ad1d18bb5880017bbc56",
                 "shasum": ""
             },
             "require": {
@@ -3903,9 +3965,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
-                "source": "https://github.com/nikic/PHP-Parser/tree/v5.5.0"
+                "source": "https://github.com/nikic/PHP-Parser/tree/v5.6.0"
             },
-            "time": "2025-05-31T08:24:38+00:00"
+            "time": "2025-07-27T20:03:57+00:00"
         },
         {
             "name": "symfony/maker-bundle",
