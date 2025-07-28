@@ -132,4 +132,15 @@ class User
         
         return null;
     }
+    
+    /**
+     * Получить ID чата Telegram (для совместимости с API)
+     * В случае приватных чатов chat_id совпадает с telegram_id пользователя
+     *
+     * @return int|null ID чата Telegram
+     */
+    public function getChatId(): ?int
+    {
+        return $this->telegram_id;
+    }
 }

@@ -142,21 +142,9 @@ docker-setup-telegram-webhook:
 
 # Полный перезапуск и настройка всех сервисов
 docker-restart-all:
-	@echo "Перезапуск всех контейнеров..."
-	docker-compose restart
+	@echo "Перезапуск контейнеров..."
+	docker-compose down
+	docker-compose up -d
 	@echo "Контейнеры перезапущены. Настраиваем webhook..."
 	@$(MAKE) docker-setup-telegram-webhook
-	@echo "Webhook настроен. Запускаем фоновый процесс лечения..."
-	@if [ "$(shell uname)" = "Darwin" ]; then \
-		osascript -e 'tell application "Terminal" to do script "cd $(CURDIR) && make docker-healing-daemon"' || \
-		echo "Не удалось автоматически запустить процесс лечения в новом терминале."; \
-	elif [ "$(shell uname)" = "Linux" ]; then \
-		gnome-terminal -- bash -c "cd $(CURDIR) && make docker-healing-daemon" || \
-		terminal -- bash -c "cd $(CURDIR) && make docker-healing-daemon" || \
-		xterm -e "cd $(CURDIR) && make docker-healing-daemon" || \
-		echo "Не удалось автоматически запустить процесс лечения в новом терминале."; \
-	else \
-		echo "Не удалось определить операционную систему. Запустите процесс лечения вручную."; \
-	fi
-	@echo "Настройка завершена! Бот готов к работе."
-	@echo "Для запуска процесса лечения вручную используйте команду: make docker-healing-daemon"
+	@echo "Webhook настроен. Настройка завершена! Бот готов к работе."

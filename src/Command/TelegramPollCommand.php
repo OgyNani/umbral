@@ -4,7 +4,6 @@ namespace App\Command;
 
 use App\Controller\TelegramController;
 use App\Service\CharacterCreationService;
-use App\Service\HealingService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;

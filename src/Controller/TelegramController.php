@@ -13,7 +13,6 @@ use App\Service\ButtonService;
 use App\Service\ButtonHandlerService;
 use App\Service\LocationService;
 use App\Service\CombatService;
-use App\Service\HealingService;
 use App\Service\GameTextService as Text;
 use Psr\Log\LoggerInterface;
 
@@ -25,7 +24,6 @@ class TelegramController extends AbstractController
     private ButtonHandlerService $buttonHandlerService;
     private LocationService $locationService;
     private CombatService $combatService;
-    private HealingService $healingService;
     private LoggerInterface $logger;
 
     public function __construct(
@@ -34,7 +32,6 @@ class TelegramController extends AbstractController
         ButtonHandlerService $buttonHandlerService, 
         LocationService $locationService,
         CombatService $combatService,
-        HealingService $healingService,
         LoggerInterface $logger
     ) {
         $this->botApi = new BotApi($_ENV['TELEGRAM_BOT_TOKEN']);
@@ -43,7 +40,6 @@ class TelegramController extends AbstractController
         $this->buttonHandlerService = $buttonHandlerService;
         $this->locationService = $locationService;
         $this->combatService = $combatService;
-        $this->healingService = $healingService;
         $this->logger = $logger;
     }
 
@@ -115,12 +111,8 @@ class TelegramController extends AbstractController
                     $character = $this->characterCreationService->getActiveCharacter($chatId);
                     
                     if ($character) {
-                        // Process healing if not in combat
-                        try {
-                            $this->healingService->processHealing($chatId, $character);
-                        } catch (\Exception $e) {
-                            $this->logger->error('Error processing healing: ' . $e->getMessage());
-                        }
+                        // Убрано автоматическое исцеление при каждом сообщении
+                        // Теперь хил происходит только через фоновый воркер Messenger
 
                         // Проверяем кнопку Back специально, чтобы она работала всегда
                         if ($text === ButtonService::BUTTON_BACK) {
