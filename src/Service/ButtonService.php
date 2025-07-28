@@ -23,6 +23,11 @@ class ButtonService
     public const BUTTON_EXPLORE = '🗺️ Explore';
     public const BUTTON_HELP = '📚 Help';
     public const BUTTON_BACK = '🔙 Back';
+    public const BUTTON_ALCHEMY = 'Alchemy';
+    public const BUTTON_HUNT = 'Hunt';
+    public const BUTTON_MINE = 'Mine';
+    public const BUTTON_FISH = 'Fish';
+    public const BUTTON_FARM = 'Farm';
     
     /**
      * Возвращает клавиатуру в зависимости от типа локации
@@ -38,12 +43,62 @@ class ButtonService
                 return $this->getDungeonKeyboard();
             case 'world':
                 return $this->getWorldKeyboard();
+            case 'alchemy':
+                return $this->getAlchemyKeyboard();
+            case 'hunting':
+                return $this->getHuntingKeyboard();
+            case 'mines':
+                return $this->getMinesKeyboard();
+            case 'fishing':
+                return $this->getFishingKeyboard();
+            case 'farm':
+                return $this->getFarmKeyboard();
             default:
                 return $this->getDefaultKeyboard();
         }
     }
+
+    private function getAlchemyKeyboard(): ReplyKeyboardMarkup
+    {
+        return new ReplyKeyboardMarkup([
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
+            [self::BUTTON_MAP, self::BUTTON_ALCHEMY]
+        ], true, true, true);
+    }
+
+    private function getHuntingKeyboard(): ReplyKeyboardMarkup
+    {
+        return new ReplyKeyboardMarkup([
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
+            [self::BUTTON_MAP, self::BUTTON_HUNT]
+        ], true, true, true);
+    }
     
-    /**
+    private function getMinesKeyboard(): ReplyKeyboardMarkup
+    {
+        return new ReplyKeyboardMarkup([
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
+            [self::BUTTON_MAP, self::BUTTON_MINE]
+        ], true, true, true);
+    }
+
+    private function getFishingKeyboard(): ReplyKeyboardMarkup
+    {
+        return new ReplyKeyboardMarkup([
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
+            [self::BUTTON_MAP, self::BUTTON_FISH]
+        ], true, true, true);
+    }
+
+    private function getFarmKeyboard(): ReplyKeyboardMarkup
+    {
+        return new ReplyKeyboardMarkup([
+            [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
+            [self::BUTTON_MAP, self::BUTTON_FARM]
+        ], true, true, true);
+    }
+
+    /** 
      * Клавиатура для городских локаций
      */
     private function getCityKeyboard(): ReplyKeyboardMarkup
@@ -137,6 +192,41 @@ class ButtonService
                 $buttons = array_merge($buttons, [
                     self::BUTTON_FIGHT,
                     self::BUTTON_MAP
+                ]);
+                break;
+
+            case 'alchemy':
+                $buttons = array_merge($buttons, [
+                    self::BUTTON_MAP,
+                    self::BUTTON_ALCHEMY
+                ]);
+                break;
+
+            case 'hunting':
+                $buttons = array_merge($buttons, [
+                    self::BUTTON_MAP,
+                    self::BUTTON_HUNT
+                ]);
+                break;
+
+            case 'mines':
+                $buttons = array_merge($buttons, [
+                    self::BUTTON_MAP,
+                    self::BUTTON_MINE
+                ]);
+                break;
+
+            case 'fishing':
+                $buttons = array_merge($buttons, [
+                    self::BUTTON_MAP,
+                    self::BUTTON_FISH
+                ]);
+                break;
+
+            case 'farm':
+                $buttons = array_merge($buttons, [
+                    self::BUTTON_MAP,
+                    self::BUTTON_FARM
                 ]);
                 break;
                 

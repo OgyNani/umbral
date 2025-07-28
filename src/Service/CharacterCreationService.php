@@ -4,20 +4,23 @@ namespace App\Service;
 
 use App\Entity\Character;
 use App\Entity\User;
+use App\Entity\UserGatheringLevel;
 use App\Repository\CharacterClassRepository;
 use App\Repository\CharacterRepository;
 use App\Repository\LocationRepository;
+use App\Repository\UserGatheringLevelRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Predis\Client as RedisClient;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use TelegramBot\Api\BotApi;
 use TelegramBot\Api\Types\Inline\InlineKeyboardMarkup;
 use TelegramBot\Api\Types\ReplyKeyboardMarkup;
 use TelegramBot\Api\Types\ReplyKeyboardRemove;
 use App\Service\GameTextService as Text;
 use App\Service\ButtonService;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Psr\Log\LoggerInterface;
 
 class CharacterCreationService
 {
@@ -37,7 +40,9 @@ class CharacterCreationService
     private RequestStack $requestStack;
     private ?SessionInterface $session = null;
     private LoggerInterface $logger;
-    
+    private ?RedisClient $redis;
+    private UserGatheringLevelRepository $userGatheringLevelRepository;
+
     // Fallback storage for CLI commands
     private static array $creationStateStorage = [];
 
@@ -50,7 +55,8 @@ class CharacterCreationService
         LocationRepository $locationRepository,
         ButtonService $buttonService,
         RequestStack $requestStack,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        UserGatheringLevelRepository $userGatheringLevelRepository
     ) {
         $this->botApi = $botApi;
         $this->userRepository = $userRepository;
@@ -61,6 +67,7 @@ class CharacterCreationService
         $this->buttonService = $buttonService;
         $this->requestStack = $requestStack;
         $this->logger = $logger;
+        $this->userGatheringLevelRepository = $userGatheringLevelRepository;
         
         try {
             $this->session = $requestStack->getSession();
@@ -69,6 +76,20 @@ class CharacterCreationService
             // Session is not available (CLI context)
             $this->session = null;
             $this->logger->warning('Session not available, using fallback storage: ' . $e->getMessage());
+        }
+        
+        // Инициализация Redis-клиента
+        try {
+            // Инициализация Redis-клиента со стандартными параметрами подключения
+            $this->redis = new RedisClient([
+                'scheme' => 'tcp',
+                'host'   => 'redis',
+                'port'   => 6379,
+            ]);
+            $this->logger->info('Redis client initialized successfully for CharacterCreationService');
+        } catch (\Exception $e) {
+            $this->redis = null;
+            $this->logger->warning('Redis client not available for CharacterCreationService, using fallback storage: ' . $e->getMessage());
         }
     }
     
@@ -88,7 +109,11 @@ class CharacterCreationService
     {
         // If user is not in character creation process, return false
         $creationState = $this->getCreationState($chatId);
+        $this->logger->info(sprintf('handleCharacterCreationMessage: chatId=%d, text=%s, state=%s', 
+            $chatId, $text, $creationState ? json_encode($creationState) : 'null'));
+        
         if ($creationState === null) {
+            $this->logger->warning('Creation state is null, cannot handle message in creation flow');
             return false;
         }
         
@@ -226,8 +251,11 @@ class CharacterCreationService
      */
     private function handleClassSelectionByName(int $chatId, string $className): void
     {
+        $this->logger->info(sprintf('handleClassSelectionByName: chatId=%d, className=%s', $chatId, $className));
+        
         // Try to find class by exact name
         $class = $this->characterClassRepository->findOneBy(['name' => $className]);
+        $this->logger->info(sprintf('Class search by exact name result: %s', $class ? 'found' : 'not found'));
         
         // If not found, try case-insensitive or partial match
         if (!$class) {
@@ -519,6 +547,25 @@ class CharacterCreationService
         $user->setCurrentCharacterId($character->getId());
         $this->entityManager->flush();
         
+        // Инициализация уровней навыков сбора ресурсов
+        $this->logger->info('Initializing gathering skills for new character');
+        $gatheringLevel = new UserGatheringLevel();
+        $gatheringLevel->setUser($user);
+        $gatheringLevel->setAlchemyLvl(0);
+        $gatheringLevel->setHuntingLvl(0);
+        $gatheringLevel->setMinesLvl(0);
+        $gatheringLevel->setFishingLvl(0);
+        $gatheringLevel->setFarmLvl(0);
+        $gatheringLevel->setAlchemyExp(0);
+        $gatheringLevel->setHuntingExp(0);
+        $gatheringLevel->setMinesExp(0);
+        $gatheringLevel->setFishingExp(0);
+        $gatheringLevel->setFarmExp(0);
+        
+        $this->entityManager->persist($gatheringLevel);
+        $this->entityManager->flush();
+        $this->logger->info(sprintf('Gathering skills initialized for user ID: %d', $user->getId()));
+        
         // Clear creation state
         $this->clearCreationState($chatId);
         $this->logger->info('Character creation state cleared');
@@ -578,15 +625,50 @@ class CharacterCreationService
     private function getCreationState(int $chatId): ?array
     {
         $state = null;
+        $redisKey = 'character_creation_' . $chatId;
         
+        $this->logger->info(sprintf('getCreationState: chatId=%d, session=%s, redis=%s', 
+            $chatId, $this->session !== null ? 'available' : 'not available',
+            $this->redis !== null ? 'available' : 'not available'));
+        
+        // Сначала проверяем в Redis, если доступен
+        if ($this->redis !== null) {
+            try {
+                $redisState = $this->redis->get($redisKey);
+                if ($redisState) {
+                    $state = json_decode($redisState, true);
+                    $this->logger->info(sprintf('Found creation state in Redis for chat_id: %d, state: %s', 
+                        $chatId, json_encode($state)));
+                    return $state;
+                }
+            } catch (\Exception $e) {
+                $this->logger->warning('Error getting creation state from Redis: ' . $e->getMessage());
+            }
+        }
+        
+        // Затем проверяем в сессии
         if ($this->session !== null) {
-            $state = $this->session->get('character_creation_' . $chatId);
-            $this->logger->debug(sprintf('Getting creation state from session for chat_id: %d, state: %s', 
+            $state = $this->session->get($redisKey);
+            $this->logger->info(sprintf('Getting creation state from session for chat_id: %d, state: %s', 
                 $chatId, $state ? json_encode($state) : 'null'));
+                
+            // Если нашли в сессии, сохраняем также в Redis для будущего использования
+            if ($state && $this->redis !== null) {
+                try {
+                    $this->redis->set($redisKey, json_encode($state));
+                    $this->logger->info('Copied creation state from session to Redis');
+                } catch (\Exception $e) {
+                    $this->logger->warning('Error copying creation state to Redis: ' . $e->getMessage());
+                }
+            }
         } else {
+            // Наконец, проверяем в статическом хранилище
             $state = self::$creationStateStorage[$chatId] ?? null;
-            $this->logger->debug(sprintf('Getting creation state from static storage for chat_id: %d, state: %s', 
+            $this->logger->info(sprintf('Getting creation state from static storage for chat_id: %d, state: %s', 
                 $chatId, $state ? json_encode($state) : 'null'));
+            
+            // Вывод всех сохраненных состояний в статическом хранилище
+            $this->logger->info('All stored states in static storage: ' . json_encode(self::$creationStateStorage));
         }
         
         return $state;
@@ -597,15 +679,44 @@ class CharacterCreationService
      */
     private function setCreationState(int $chatId, array $state): void
     {
-        if ($this->session !== null) {
-            $this->session->set('character_creation_' . $chatId, $state);
-            $this->logger->debug(sprintf('Setting creation state in session for chat_id: %d, state: %s', 
-                $chatId, json_encode($state)));
-        } else {
-            self::$creationStateStorage[$chatId] = $state;
-            $this->logger->debug(sprintf('Setting creation state in static storage for chat_id: %d, state: %s', 
-                $chatId, json_encode($state)));
+        $redisKey = 'character_creation_' . $chatId;
+        
+        $this->logger->info(sprintf('setCreationState: setting state for chatId=%d, state=%s, sessionAvailable=%s, redisAvailable=%s', 
+            $chatId, json_encode($state), $this->session !== null ? 'yes' : 'no', $this->redis !== null ? 'yes' : 'no'));
+        
+        // Сохраняем в Redis, если доступен
+        if ($this->redis !== null) {
+            try {
+                $this->redis->set($redisKey, json_encode($state));
+                $this->logger->info(sprintf('State set in REDIS for chat_id: %d, state: %s', 
+                    $chatId, json_encode($state)));
+                    
+                // Проверяем, что состояние действительно сохранилось в Redis
+                $redisCheck = $this->redis->get($redisKey);
+                $this->logger->info(sprintf('VERIFICATION: State in Redis after save: %s', 
+                    $redisCheck ?: 'null'));
+            } catch (\Exception $e) {
+                $this->logger->warning('Error setting creation state in Redis: ' . $e->getMessage());
+            }
         }
+        
+        // Также сохраняем в сессии
+        if ($this->session !== null) {
+            $this->session->set($redisKey, $state);
+            $this->session->save(); // Принудительное сохранение сессии
+            $this->logger->info(sprintf('State set in SESSION for chat_id: %d, state: %s', 
+                $chatId, json_encode($state)));
+                
+            // Сразу проверяем, что состояние действительно сохранилось
+            $checkState = $this->session->get($redisKey);
+            $this->logger->info(sprintf('VERIFICATION: State in session after save: %s', 
+                $checkState ? json_encode($checkState) : 'null'));
+        } 
+        
+        // Сохраняем также в статическом хранилище (для CLI или в случае отсутствия Redis и сессии)
+        self::$creationStateStorage[$chatId] = $state;
+        $this->logger->info(sprintf('State set in STATIC STORAGE for chat_id: %d, state: %s', 
+            $chatId, json_encode($state)));
     }
     
     /**
@@ -613,11 +724,28 @@ class CharacterCreationService
      */
     private function clearCreationState(int $chatId): void
     {
-        if ($this->session !== null) {
-            $this->session->remove('character_creation_' . $chatId);
-        } else {
-            unset(self::$creationStateStorage[$chatId]);
+        $redisKey = 'character_creation_' . $chatId;
+        $this->logger->info(sprintf('clearCreationState: chatId=%d', $chatId));
+        
+        // Очищаем состояние из Redis, если доступен
+        if ($this->redis !== null) {
+            try {
+                $this->redis->del($redisKey);
+                $this->logger->info(sprintf('Cleared creation state from Redis for chat_id: %d', $chatId));
+            } catch (\Exception $e) {
+                $this->logger->warning('Error clearing creation state from Redis: ' . $e->getMessage());
+            }
         }
+        
+        // Очищаем состояние из сессии
+        if ($this->session !== null) {
+            $this->session->remove($redisKey);
+            $this->logger->info(sprintf('Cleared creation state from session for chat_id: %d', $chatId));
+        }
+        
+        // Очищаем состояние из статического хранилища
+        unset(self::$creationStateStorage[$chatId]);
+        $this->logger->info(sprintf('Cleared creation state from static storage for chat_id: %d', $chatId));
     }
     
     /**

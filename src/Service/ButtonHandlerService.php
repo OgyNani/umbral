@@ -9,6 +9,7 @@ use TelegramBot\Api\Types\ReplyKeyboardMarkup;
 use Psr\Log\LoggerInterface;
 use App\Service\ButtonService;
 use App\Service\CombatService;
+use App\Repository\UserGatheringLevelRepository;
 
 class ButtonHandlerService
 {
@@ -17,19 +18,22 @@ class ButtonHandlerService
     private LocationService $locationService;
     private ButtonService $buttonService;
     private CombatService $combatService;
+    private UserGatheringLevelRepository $userGatheringLevelRepository;
     
     public function __construct(
         BotApi $botApi, 
         LoggerInterface $logger, 
         LocationService $locationService, 
         ButtonService $buttonService,
-        CombatService $combatService)
+        CombatService $combatService,
+        UserGatheringLevelRepository $userGatheringLevelRepository)
     {
         $this->botApi = $botApi;
         $this->logger = $logger;
         $this->locationService = $locationService;
         $this->buttonService = $buttonService;
         $this->combatService = $combatService;
+        $this->userGatheringLevelRepository = $userGatheringLevelRepository;
     }
     
     /**
@@ -160,14 +164,35 @@ class ButtonHandlerService
             return;
         }
         
+        // Получаем информацию о навыках сбора ресурсов
+        $gatheringLevels = $this->userGatheringLevelRepository->findOneBy(['user' => $user]);
+        
+        $craftingInfo = "";
+        if ($gatheringLevels) {
+            $craftingInfo = sprintf(
+                "\n\nCrafting Skills:\n" .
+                "Alchemy: Lvl %d (Exp: %d)\n" .
+                "Hunting: Lvl %d (Exp: %d)\n" .
+                "Mining: Lvl %d (Exp: %d)\n" .
+                "Fishing: Lvl %d (Exp: %d)\n" .
+                "Farming: Lvl %d (Exp: %d)",
+                $gatheringLevels->getAlchemyLvl(), $gatheringLevels->getAlchemyExp(),
+                $gatheringLevels->getHuntingLvl(), $gatheringLevels->getHuntingExp(),
+                $gatheringLevels->getMinesLvl(), $gatheringLevels->getMinesExp(),
+                $gatheringLevels->getFishingLvl(), $gatheringLevels->getFishingExp(),
+                $gatheringLevels->getFarmLvl(), $gatheringLevels->getFarmExp()
+            );
+        }
+        
         $this->botApi->sendMessage(
             $chatId,
             sprintf(
-                "User Info:\n\nName: %s\nCreated At: %s\nGold: %s\nEmeralds: %s",
+                "User Info:\n\nName: %s\nCreated At: %s\nGold: %s\nEmeralds: %s%s",
                 $user->getCharacter() ? $user->getCharacter()->getName() : $character->getName(),
                 $user->getCreatedAt()->format('Y-m-d H:i:s'),
                 $user->getGold(),
-                $user->getEmeralds()
+                $user->getEmeralds(),
+                $craftingInfo
             ),
             null,
             false,

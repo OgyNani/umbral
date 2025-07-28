@@ -86,12 +86,21 @@ class TelegramController extends AbstractController
             $this->logger->info('Character creation process started');
         } else {
             // Check if the user is in the character creation process
-            if ($this->characterCreationService->isWaitingForName($chatId)) {
+            $this->logger->info('Checking if user is in character creation process');
+            
+            // Проверяем, находится ли пользователь в процессе создания персонажа и ожидает ли ввода имени
+            $isWaitingForName = $this->characterCreationService->isWaitingForName($chatId);
+            $this->logger->info('Is waiting for name: ' . ($isWaitingForName ? 'true' : 'false'));
+            
+            if ($isWaitingForName) {
                 // If waiting for name input, handle it through handleNameInput
+                $this->logger->info('User is waiting for name input, handling: ' . $text);
                 $this->characterCreationService->handleNameInput($chatId, $text);
             } else {
                 // Try to process the message in the character creation flow
+                $this->logger->info('Attempting to handle message in character creation flow: ' . $text);
                 $handled = $this->characterCreationService->handleCharacterCreationMessage($chatId, $text);
+                $this->logger->info('Character creation message handled: ' . ($handled ? 'true' : 'false'));
                 
                 // If the message was not handled in the character creation process, check if it's a combat-related message
                 if (!$handled) {
@@ -139,6 +148,7 @@ class TelegramController extends AbstractController
                         $this->botApi->sendMessage($chatId, "You are in combat and can only use combat commands.");
                     } else {
                         // No active character, send unknown command message
+                        $this->logger->info('No active character and no character creation in progress, sending unknown command message for: ' . $text);
                         $this->botApi->sendMessage($chatId, sprintf(Text::UNKNOWN_COMMAND, $text));
                     }
                 }
