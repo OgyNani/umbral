@@ -105,7 +105,7 @@ class GatheringService
         ], true, true);
         
         // Сохраняем категорию сбора в Redis для дальнейшего использования
-        $this->redis->set("gathering:category:{$telegramId}", $category, 3600); // TTL 1 час
+        $this->redis->set("gathering:category:{$telegramId}", $category);
         
         return [
             'message' => $message,
@@ -141,12 +141,16 @@ class GatheringService
         
         $this->logger->info('Gathering process confirmed', ['telegram_id' => $telegramId, 'category' => $category]);
         
-        // Устанавливаем время окончания сбора в Redis
-        $endTime = time() + self::GATHERING_TIME_SECONDS;
-        $this->redis->set("gathering:active:{$telegramId}", $endTime, self::GATHERING_TIME_SECONDS + 60);
+        // Устанавливаем точное время окончания сбора в формате Y-m-d H:i:s
+        $endTime = new \DateTime();
+        $endTime->modify('+' . self::GATHERING_TIME_SECONDS . ' seconds');
+        $endTimeFormatted = $endTime->format('Y-m-d H:i:s');
+        
+        // Сохраняем время окончания сбора в Redis
+        $this->redis->set("gathering:active:{$telegramId}", $endTimeFormatted);
         
         // Сохраняем тип сбора
-        $this->redis->set("gathering:type:{$telegramId}", $category, self::GATHERING_TIME_SECONDS + 60);
+        $this->redis->set("gathering:type:{$telegramId}", $category);
         
         // Создаем сообщение о начале сбора
         $categoryName = $this->getCategoryDisplayName($category);
@@ -154,7 +158,10 @@ class GatheringService
         
         // Создаем клавиатуру только с кнопкой отмены
         $keyboard = new ReplyKeyboardMarkup([
-            [ButtonService::BUTTON_CANCEL_GATHERING],
+            [
+                ButtonService::BUTTON_CANCEL_GATHERING,
+                ButtonService::BUTTON_CHECK_GATHERING
+            ],
         ], true, true);
         
         return [
@@ -196,42 +203,104 @@ class GatheringService
     }
     
     /**
+     * Проверяет статус активного сбора
+     * 
+     * @param int $telegramId ID пользователя в Telegram
+     * @return array Массив с информацией о статусе сбора
+     */
+    public function checkGatheringStatus(int $telegramId): array
+    {
+        // Проверяем, активен ли процесс сбора
+        $endTimeStr = $this->redis->get("gathering:active:{$telegramId}");
+
+        $keyboard = new ReplyKeyboardMarkup([
+            [
+                ButtonService::BUTTON_CANCEL_GATHERING,
+                ButtonService::BUTTON_CHECK_GATHERING
+            ],
+        ], true, true);
+        
+        if (!$endTimeStr) {
+            return [
+                'is_active' => false,
+                'time_remaining' => 0
+            ];
+        }
+        
+        // Преобразуем строку времени обратно в объект DateTime
+        $endTime = \DateTime::createFromFormat('Y-m-d H:i:s', $endTimeStr);
+        $currentTime = new \DateTime();
+        
+        if ($currentTime >= $endTime) {
+            return [
+                'is_active' => false,
+                'time_remaining' => 0,
+                'end_time' => $endTimeStr,
+                'keyboard' => $keyboard
+            ];
+        }
+        
+        // Вычисляем оставшееся время в секундах
+        $timeRemaining = $endTime->getTimestamp() - $currentTime->getTimestamp();
+
+        return [
+            'is_active' => true,
+            'time_remaining' => $timeRemaining,
+            'end_time' => $endTimeStr,
+            'category' => $this->redis->get("gathering:type:{$telegramId}"),
+            'keyboard' => $keyboard,
+        ];
+    }
+    
+    /**
      * Проверяет, завершен ли процесс сбора
      */
     public function checkGatheringCompletion(int $telegramId): ?array
     {
-        // Проверяем, активен ли процесс сбора
-        $endTime = $this->redis->get("gathering:active:{$telegramId}");
-        if (!$endTime) {
-            return null; // Нет активного сбора
+        // Получаем время окончания сбора
+        $endTimeStr = $this->redis->get("gathering:active:{$telegramId}");
+        
+        if (!$endTimeStr) {
+            return null;
         }
         
-        // Если время еще не истекло, возвращаем null
-        if (time() < $endTime) {
+        // Преобразуем строку времени обратно в объект DateTime
+        $endTime = \DateTime::createFromFormat('Y-m-d H:i:s', $endTimeStr);
+        $currentTime = new \DateTime();
+        
+        if ($currentTime < $endTime) {
+            // Если время еще не наступило, возвращаем null
             return null;
         }
         
         // Получаем тип сбора
-        $category = $this->redis->get("gathering:type:{$telegramId}");
+        $category = $this->redis->get("gathering:category:{$telegramId}");
         if (!$category) {
             // Удаляем все данные о сборе
             $this->redis->del("gathering:active:{$telegramId}");
             return null;
         }
         
-        // Получаем персонажа по telegram_id
-        $character = $this->characterRepository->findOneByTelegramId($telegramId);
+        // Получаем пользователя по telegram_id и его активного персонажа
+        $user = $this->userRepository->findOneBy(['telegram_id' => $telegramId]);
+        if (!$user) {
+            $this->logger->error('User not found', ['telegram_id' => $telegramId]);
+            return [
+                'message' => "Error: user not found.",
+                'keyboard' => $this->buttonService->getMainMenuKeyboard()
+            ];
+        }
+        
+        $character = $user->getActiveCharacter();
         $location = $character->getLocation();
-        $locationType = $location->getType();
+        $locationType = $location ? $location->getType() : 'default';
         if (!$character) {
-            $this->logger->error('Character not found', ['telegram_id' => $telegramId]);
+            $this->logger->error('No active character found', ['user_id' => $user->getId()]);
             return [
                 'message' => "Error: character not found.",
                 'keyboard' => $this->buttonService->getKeyboardForLocation($locationType)
             ];
         }
-        
-        
         
         // Выполняем сбор ресурсов
         $gatheringResult = $this->collectResources($character, $category);
@@ -268,7 +337,8 @@ class GatheringService
         
         // Получаем текущую локацию персонажа и её тир (1-5)
         $location = $character->getLocation();
-        $locationTier = $location->getLevel() ?: 1; // Если тир не указан, используем 1
+        // $locationTier = $location->getLevel() ?: 1; // Если тир не указан, используем 1
+        $locationTier = 1;
         
         // Рассчитываем бонусный процент дропа от тира локации
         $locationBonusPercent = ($locationTier - 1) * 10; // Tier 1: +0%, Tier 2: +10%, ..., Tier 5: +40%

@@ -71,8 +71,6 @@ class TelegramController extends AbstractController
         $chatId = $message['chat']['id'];
         $text = $message['text'] ?? '';
         
-        // При каждом запросе проверяем, не завершился ли процесс сбора ресурсов
-        $this->buttonHandlerService->checkGatheringCompletion($chatId);
         $username = $message['from']['username'] ?? null;
         $firstName = $message['from']['first_name'] ?? null;
         
@@ -164,9 +162,6 @@ class TelegramController extends AbstractController
         $callbackQuery = $update['callback_query'];
         $callbackData = $callbackQuery['data'];
         $chatId = $callbackQuery['message']['chat']['id'];
-        
-        // При каждом запросе проверяем, не завершился ли процесс сбора ресурсов
-        $this->buttonHandlerService->checkGatheringCompletion($chatId);
         
         $this->logger->info(sprintf('Processing callback query: %s from chat_id: %d', $callbackData, $chatId));
         

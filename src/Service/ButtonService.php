@@ -30,6 +30,7 @@ class ButtonService
     public const BUTTON_FARM = 'Farm';
     public const BUTTON_START_GATHERING = 'Start Gathering';
     public const BUTTON_CANCEL_GATHERING = 'Cancel Gathering';
+    public const BUTTON_CHECK_GATHERING = 'Check Gathering';
     
     /**
      * Возвращает клавиатуру в зависимости от типа локации
@@ -202,7 +203,8 @@ class ButtonService
                     self::BUTTON_MAP,
                     self::BUTTON_GATHER,
                     self::BUTTON_START_GATHERING,
-                    self::BUTTON_CANCEL_GATHERING
+                    self::BUTTON_CANCEL_GATHERING,
+                    self::BUTTON_CHECK_GATHERING
                 ]);
                 break;
 
@@ -211,7 +213,8 @@ class ButtonService
                     self::BUTTON_MAP,
                     self::BUTTON_HUNT,
                     self::BUTTON_START_GATHERING,
-                    self::BUTTON_CANCEL_GATHERING
+                    self::BUTTON_CANCEL_GATHERING,
+                    self::BUTTON_CHECK_GATHERING
                 ]);
                 break;
 
@@ -220,7 +223,8 @@ class ButtonService
                     self::BUTTON_MAP,
                     self::BUTTON_MINE,
                     self::BUTTON_START_GATHERING,
-                    self::BUTTON_CANCEL_GATHERING
+                    self::BUTTON_CANCEL_GATHERING,
+                    self::BUTTON_CHECK_GATHERING
                 ]);
                 break;
 
@@ -229,7 +233,8 @@ class ButtonService
                     self::BUTTON_MAP,
                     self::BUTTON_FISH,
                     self::BUTTON_START_GATHERING,
-                    self::BUTTON_CANCEL_GATHERING
+                    self::BUTTON_CANCEL_GATHERING,
+                    self::BUTTON_CHECK_GATHERING
                 ]);
                 break;
 
@@ -238,7 +243,8 @@ class ButtonService
                     self::BUTTON_MAP,
                     self::BUTTON_FARM,
                     self::BUTTON_START_GATHERING,
-                    self::BUTTON_CANCEL_GATHERING
+                    self::BUTTON_CANCEL_GATHERING,
+                    self::BUTTON_CHECK_GATHERING
                 ]);
                 break;
                 

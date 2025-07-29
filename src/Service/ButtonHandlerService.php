@@ -121,6 +121,10 @@ class ButtonHandlerService
                 $this->handleCancelGathering($chatId, $character);
                 break;
                 
+            case "Check Gathering":
+                $this->handleCheckGathering($chatId, $character);
+                break;
+                
             // Regular buttons
             case ButtonService::BUTTON_CHARACTER:
                 $this->handleCharacterInfo($chatId, $character);
@@ -544,23 +548,49 @@ class ButtonHandlerService
     }
     
     /**
-     * Проверяет завершение процесса сбора
+     * Обрабатывает проверку оставшегося времени сбора
      */
-    public function checkGatheringCompletion(int $chatId): void
+    private function handleCheckGathering(int $chatId, Character $character): void
     {
-        // Проверяем, завершен ли процесс сбора
-        $result = $this->gatheringService->checkGatheringCompletion($chatId);
+        $this->logger->info('Checking gathering status', ['character' => $character->getName()]);
         
-        // Если процесс сбора завершен, отправляем сообщение с результатами
-        if ($result) {
+        // Сначала проверяем, не завершился ли уже сбор
+        $completionResult = $this->gatheringService->checkGatheringCompletion($chatId);
+        
+        if ($completionResult !== null) {
+            // Если сбор завершился, показываем результат
             $this->botApi->sendMessage(
                 $chatId,
-                $result['message'],
+                $completionResult['message'],
                 null,
                 false,
                 null,
-                $result['keyboard']
+                $completionResult['keyboard']
             );
+            return;
         }
+        
+        // Если сбор еще не завершился, показываем оставшееся время
+        $status = $this->gatheringService->checkGatheringStatus($chatId);
+        
+        if ($status['is_active']) {
+            $message = "⏳ Gathering in progress. Time remaining: {$status['time_remaining']} seconds.";
+        } else {
+            $message = "ℹ️ No active gathering process found.";
+        }
+        
+        // Используем клавиатуру из статуса или дефолтную, если не задана
+        $keyboard = $status['keyboard'] ?? $this->buttonService->getKeyboardForLocation($character->getLocation());
+        
+        // Отправляем сообщение с информацией о статусе
+        $this->botApi->sendMessage(
+            $chatId,
+            $message,
+            null,
+            false,
+            null,
+            $keyboard
+        );
     }
+
 }
