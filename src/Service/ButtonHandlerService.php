@@ -9,6 +9,7 @@ use TelegramBot\Api\Types\ReplyKeyboardMarkup;
 use Psr\Log\LoggerInterface;
 use App\Service\ButtonService;
 use App\Service\CombatService;
+use App\Service\GatheringService;
 use App\Repository\UserGatheringLevelRepository;
 
 class ButtonHandlerService
@@ -18,6 +19,7 @@ class ButtonHandlerService
     private LocationService $locationService;
     private ButtonService $buttonService;
     private CombatService $combatService;
+    private GatheringService $gatheringService;
     private UserGatheringLevelRepository $userGatheringLevelRepository;
     
     public function __construct(
@@ -26,6 +28,7 @@ class ButtonHandlerService
         LocationService $locationService, 
         ButtonService $buttonService,
         CombatService $combatService,
+        GatheringService $gatheringService,
         UserGatheringLevelRepository $userGatheringLevelRepository)
     {
         $this->botApi = $botApi;
@@ -33,6 +36,7 @@ class ButtonHandlerService
         $this->locationService = $locationService;
         $this->buttonService = $buttonService;
         $this->combatService = $combatService;
+        $this->gatheringService = $gatheringService;
         $this->userGatheringLevelRepository = $userGatheringLevelRepository;
     }
     
@@ -87,6 +91,37 @@ class ButtonHandlerService
         }
         
         switch ($buttonText) {
+            // Gathering buttons
+            case ButtonService::BUTTON_GATHER:
+                $this->handleGather($chatId, $character, GatheringService::CATEGORY_ALCHEMY);
+                break;
+                
+            case ButtonService::BUTTON_HUNT:
+                $this->handleGather($chatId, $character, GatheringService::CATEGORY_HUNT);
+                break;
+                
+            case ButtonService::BUTTON_MINE:
+                $this->handleGather($chatId, $character, GatheringService::CATEGORY_MINE);
+                break;
+                
+            case ButtonService::BUTTON_FISH:
+                $this->handleGather($chatId, $character, GatheringService::CATEGORY_FISH);
+                break;
+                
+            case ButtonService::BUTTON_FARM:
+                $this->handleGather($chatId, $character, GatheringService::CATEGORY_FARM);
+                break;
+            
+            // Gathering action buttons
+            case "Start Gathering":
+                $this->handleStartGathering($chatId, $character);
+                break;
+                
+            case "Cancel Gathering":
+                $this->handleCancelGathering($chatId, $character);
+                break;
+                
+            // Regular buttons
             case ButtonService::BUTTON_CHARACTER:
                 $this->handleCharacterInfo($chatId, $character);
                 break;
@@ -443,5 +478,89 @@ class ButtonHandlerService
             false,
             null
         );
+    }
+    
+    /**
+     * Обрабатывает начало процесса сбора ресурсов
+     */
+    private function handleGather(int $chatId, Character $character, string $category): void
+    {
+        $this->logger->info('Handling gathering request', ['category' => $category, 'character' => $character->getName()]);
+        
+        // Получаем данные для начала сбора через сервис
+        $result = $this->gatheringService->handleGatheringStart($chatId, $category);
+        
+        // Отправляем сообщение с подтверждением
+        $this->botApi->sendMessage(
+            $chatId,
+            $result['message'],
+            null,
+            false,
+            null,
+            $result['keyboard']
+        );
+    }
+    
+    /**
+     * Обрабатывает подтверждение начала сбора
+     */
+    private function handleStartGathering(int $chatId, Character $character): void
+    {
+        $this->logger->info('Starting gathering process', ['character' => $character->getName()]);
+        
+        // Запускаем процесс сбора через сервис
+        $result = $this->gatheringService->startGathering($chatId);
+        
+        // Отправляем сообщение с подтверждением
+        $this->botApi->sendMessage(
+            $chatId,
+            $result['message'],
+            null,
+            false,
+            null,
+            $result['keyboard']
+        );
+    }
+    
+    /**
+     * Обрабатывает отмену сбора
+     */
+    private function handleCancelGathering(int $chatId, Character $character): void
+    {
+        $this->logger->info('Canceling gathering process', ['character' => $character->getName()]);
+        
+        // Отменяем процесс сбора через сервис
+        $result = $this->gatheringService->cancelGathering($chatId);
+        
+        // Отправляем сообщение с подтверждением
+        $this->botApi->sendMessage(
+            $chatId,
+            $result['message'],
+            null,
+            false,
+            null,
+            $result['keyboard']
+        );
+    }
+    
+    /**
+     * Проверяет завершение процесса сбора
+     */
+    public function checkGatheringCompletion(int $chatId): void
+    {
+        // Проверяем, завершен ли процесс сбора
+        $result = $this->gatheringService->checkGatheringCompletion($chatId);
+        
+        // Если процесс сбора завершен, отправляем сообщение с результатами
+        if ($result) {
+            $this->botApi->sendMessage(
+                $chatId,
+                $result['message'],
+                null,
+                false,
+                null,
+                $result['keyboard']
+            );
+        }
     }
 }

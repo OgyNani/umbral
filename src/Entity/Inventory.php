@@ -19,8 +19,12 @@ class Inventory
     private ?Character $character = null;
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Item $item = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?Resource $resource = null;
 
     #[ORM\Column]
     private ?int $quantity = null;
@@ -60,6 +64,17 @@ class Inventory
     public function setQuantity(int $quantity): static
     {
         $this->quantity = $quantity;
+        return $this;
+    }
+
+    public function getResource(): ?Resource
+    {
+        return $this->resource;
+    }
+
+    public function setResource(?Resource $resource): static
+    {
+        $this->resource = $resource;
         return $this;
     }
 }

@@ -23,11 +23,13 @@ class ButtonService
     public const BUTTON_EXPLORE = '🗺️ Explore';
     public const BUTTON_HELP = '📚 Help';
     public const BUTTON_BACK = '🔙 Back';
-    public const BUTTON_ALCHEMY = 'Alchemy';
+    public const BUTTON_GATHER = 'Gather';
     public const BUTTON_HUNT = 'Hunt';
     public const BUTTON_MINE = 'Mine';
     public const BUTTON_FISH = 'Fish';
     public const BUTTON_FARM = 'Farm';
+    public const BUTTON_START_GATHERING = 'Start Gathering';
+    public const BUTTON_CANCEL_GATHERING = 'Cancel Gathering';
     
     /**
      * Возвращает клавиатуру в зависимости от типа локации
@@ -62,7 +64,7 @@ class ButtonService
     {
         return new ReplyKeyboardMarkup([
             [self::BUTTON_CHARACTER, self::BUTTON_USER, self::BUTTON_INVENTORY],
-            [self::BUTTON_MAP, self::BUTTON_ALCHEMY]
+            [self::BUTTON_MAP, self::BUTTON_GATHER]
         ], true, true, true);
     }
 
@@ -198,35 +200,45 @@ class ButtonService
             case 'alchemy':
                 $buttons = array_merge($buttons, [
                     self::BUTTON_MAP,
-                    self::BUTTON_ALCHEMY
+                    self::BUTTON_GATHER,
+                    self::BUTTON_START_GATHERING,
+                    self::BUTTON_CANCEL_GATHERING
                 ]);
                 break;
 
             case 'hunting':
                 $buttons = array_merge($buttons, [
                     self::BUTTON_MAP,
-                    self::BUTTON_HUNT
+                    self::BUTTON_HUNT,
+                    self::BUTTON_START_GATHERING,
+                    self::BUTTON_CANCEL_GATHERING
                 ]);
                 break;
 
             case 'mines':
                 $buttons = array_merge($buttons, [
                     self::BUTTON_MAP,
-                    self::BUTTON_MINE
+                    self::BUTTON_MINE,
+                    self::BUTTON_START_GATHERING,
+                    self::BUTTON_CANCEL_GATHERING
                 ]);
                 break;
 
             case 'fishing':
                 $buttons = array_merge($buttons, [
                     self::BUTTON_MAP,
-                    self::BUTTON_FISH
+                    self::BUTTON_FISH,
+                    self::BUTTON_START_GATHERING,
+                    self::BUTTON_CANCEL_GATHERING
                 ]);
                 break;
 
             case 'farm':
                 $buttons = array_merge($buttons, [
                     self::BUTTON_MAP,
-                    self::BUTTON_FARM
+                    self::BUTTON_FARM,
+                    self::BUTTON_START_GATHERING,
+                    self::BUTTON_CANCEL_GATHERING
                 ]);
                 break;
                 

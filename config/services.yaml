@@ -40,3 +40,8 @@ services:
     Symfony\Component\HttpFoundation\Session\Storage\Handler\RedisSessionHandler:
         arguments: ['@Redis']
         public: true
+        
+    # Message service for Telegram bot
+    App\Service\MessageService:
+        arguments:
+            $telegramBotToken: '%telegram_bot_token%'

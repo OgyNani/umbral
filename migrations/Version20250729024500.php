@@ -18,14 +18,7 @@ final class Version20250729024500 extends AbstractMigration
     }
 
     public function up(Schema $schema): void
-    {
-        // Create the character_levels table
-        $this->addSql('CREATE TABLE character_levels (
-            id SERIAL PRIMARY KEY,
-            level INT NOT NULL,
-            total_experience BIGINT NOT NULL
-        )');
-        
+    {        
         // Create index on level for faster lookups
         $this->addSql('CREATE UNIQUE INDEX idx_character_levels_level ON character_levels (level)');
         

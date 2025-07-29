@@ -45,7 +45,7 @@ class TelegramController extends AbstractController
 
     #[Route('/webhook', name: 'telegram_webhook', methods: ['POST'])]
     public function webhook(Request $request): Response
-    {
+    {        
         $content = $request->getContent();
         $this->logger->info('Received webhook data: ' . $content);
         
@@ -70,6 +70,9 @@ class TelegramController extends AbstractController
         $message = $update['message'];
         $chatId = $message['chat']['id'];
         $text = $message['text'] ?? '';
+        
+        // При каждом запросе проверяем, не завершился ли процесс сбора ресурсов
+        $this->buttonHandlerService->checkGatheringCompletion($chatId);
         $username = $message['from']['username'] ?? null;
         $firstName = $message['from']['first_name'] ?? null;
         
@@ -161,6 +164,9 @@ class TelegramController extends AbstractController
         $callbackQuery = $update['callback_query'];
         $callbackData = $callbackQuery['data'];
         $chatId = $callbackQuery['message']['chat']['id'];
+        
+        // При каждом запросе проверяем, не завершился ли процесс сбора ресурсов
+        $this->buttonHandlerService->checkGatheringCompletion($chatId);
         
         $this->logger->info(sprintf('Processing callback query: %s from chat_id: %d', $callbackData, $chatId));
         
