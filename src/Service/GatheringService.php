@@ -122,8 +122,8 @@ class GatheringService
         $category = $this->redis->get("gathering:category:{$telegramId}");
         if (!$category) {
             // Если персонаж не найден или категория не определена, возвращаем дефолтную клавиатуру
-            $user = $this->characterRepository->findByTelegramId($telegramId);
-            $character = $user->getActiveCharacter();
+            $user = $this->userRepository->findByTelegramId($telegramId);
+            $character = $user->getCharacter();
             if (!$user || !$character) {
                 return [
                     'message' => "Error: gathering category not found. Please try again.",
@@ -183,8 +183,8 @@ class GatheringService
         $this->logger->info('Gathering process canceled', ['telegram_id' => $telegramId]);
         
         // Получаем персонажа и его текущую локацию для отображения правильной клавиатуры
-        $user = $this->characterRepository->findByTelegramId($telegramId);
-        $character = $user->getActiveCharacter();
+        $user = $this->userRepository->findByTelegramId($telegramId);
+        $character = $user->getCharacter();
         if (!$user || !$character) {
             // Если персонажа нет, возвращаем базовую клавиатуру
             return [
@@ -291,7 +291,7 @@ class GatheringService
             ];
         }
         
-        $character = $user->getActiveCharacter();
+        $character = $user->getCharacter();
         $location = $character->getLocation();
         $locationType = $location ? $location->getType() : 'default';
         if (!$character) {
