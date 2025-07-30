@@ -10,20 +10,24 @@ use App\Repository\CharacterRepository;
 use App\Repository\InventoryRepository;
 use App\Repository\ResourceRepository;
 use App\Repository\UserGatheringLevelRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use Redis;
 use Symfony\Component\HttpFoundation\RequestStack;
 use TelegramBot\Api\Types\ReplyKeyboardMarkup;
 
-class GatheringService
+class GatheringService implements LoggerAwareInterface
 {
     // Константы для категорий сбора
     public const CATEGORY_ALCHEMY = 'alchemy';
-    public const CATEGORY_HUNT = 'hunt';
-    public const CATEGORY_MINE = 'mine';
-    public const CATEGORY_FISH = 'fish';
-    public const CATEGORY_FARM = 'farm';
+    public const CATEGORY_HUNT = 'hunting';
+    public const CATEGORY_MINE = 'mining';
+    public const CATEGORY_FISH = 'fishing';
+    public const CATEGORY_FARM = 'farming';
+    use LoggerAwareTrait;
 
     // Константы для рарити и бонусов опыта
     public const RARITY_COMMON = 'common';
@@ -46,15 +50,15 @@ class GatheringService
     // Для реального использования: private const GATHERING_TIME_SECONDS = 600; // 10 минут
     
     // Диапазон количества собираемых ресурсов
-    private const MIN_RESOURCES = 5;
-    private const MAX_RESOURCES = 15;
+    private const MIN_RESOURCES = 1;
+    private const MAX_RESOURCES = 5;
 
     private EntityManagerInterface $entityManager;
     private ResourceRepository $resourceRepository;
     private InventoryRepository $inventoryRepository;
     private UserGatheringLevelRepository $userGatheringLevelRepository;
     private CharacterRepository $characterRepository;
-    private LoggerInterface $logger;
+    private UserRepository $userRepository;
     private Redis $redis;
     private MessageService $messageService;
     private ButtonService $buttonService;
@@ -66,6 +70,7 @@ class GatheringService
         InventoryRepository $inventoryRepository,
         UserGatheringLevelRepository $userGatheringLevelRepository,
         CharacterRepository $characterRepository,
+        UserRepository $userRepository,
         LoggerInterface $logger,
         Redis $redis,
         MessageService $messageService,
@@ -77,6 +82,7 @@ class GatheringService
         $this->inventoryRepository = $inventoryRepository;
         $this->userGatheringLevelRepository = $userGatheringLevelRepository;
         $this->characterRepository = $characterRepository;
+        $this->userRepository = $userRepository;
         $this->logger = $logger;
         $this->redis = $redis;
         $this->messageService = $messageService;
@@ -132,10 +138,9 @@ class GatheringService
             }
 
             $location = $character->getLocation();
-            $locationType = $location->getType();
             return [
                 'message' => "Error: gathering category not found. Please try again.",
-                'keyboard' => $this->buttonService->getKeyboardForLocation($locationType)
+                'keyboard' => $this->buttonService->getKeyboardForLocation($location)
             ];    
         }
         
@@ -194,11 +199,10 @@ class GatheringService
         }
         
         $location = $character->getLocation();
-        $locationType = $location->getType();
         
         return [
             'message' => "Gathering has been canceled.",
-            'keyboard' => $this->buttonService->getKeyboardForLocation($locationType)
+            'keyboard' => $this->buttonService->getKeyboardForLocation($location)
         ];
     }
     
@@ -280,7 +284,7 @@ class GatheringService
             $this->redis->del("gathering:active:{$telegramId}");
             return null;
         }
-        
+
         // Получаем пользователя по telegram_id и его активного персонажа
         $user = $this->userRepository->findOneBy(['telegram_id' => $telegramId]);
         if (!$user) {
@@ -293,12 +297,12 @@ class GatheringService
         
         $character = $user->getCharacter();
         $location = $character->getLocation();
-        $locationType = $location ? $location->getType() : 'default';
+
         if (!$character) {
             $this->logger->error('No active character found', ['user_id' => $user->getId()]);
             return [
                 'message' => "Error: character not found.",
-                'keyboard' => $this->buttonService->getKeyboardForLocation($locationType)
+                'keyboard' => $this->buttonService->getKeyboardForLocation($location)
             ];
         }
         
@@ -317,25 +321,28 @@ class GatheringService
      * Собирает ресурсы определенной категории
      */
     private function collectResources(Character $character, string $category): array
-    {
-        $this->logger->info('Collecting resources', [
-            'character' => $character->getName(), 
-            'category' => $category
-        ]);
-        
+    {        
         // Получаем уровень навыка персонажа для данной категории сбора
         $userGatheringLevel = $this->userGatheringLevelRepository->findOneBy([
-            'user' => $character->getUser(),
-            'category' => $category
+            'user' => $character->getUser()
         ]);
         
-        $skillLevel = $userGatheringLevel ? $userGatheringLevel->getLevel() : 0;
-        $currentExp = $userGatheringLevel ? $userGatheringLevel->getExperience() : 0;
+        // Map category to the corresponding getter method
+        $levelGetters = [
+            self::CATEGORY_ALCHEMY => 'getAlchemyLvl',
+            self::CATEGORY_HUNT => 'getHuntingLvl',
+            self::CATEGORY_MINE => 'getMinesLvl',
+            self::CATEGORY_FISH => 'getFishingLvl',
+            self::CATEGORY_FARM => 'getFarmLvl'
+        ];
         
-        // Определяем количество ресурсов для сбора (от 5 до 15)
+        // Get current skill level (default to 0 if not found)
+        $skillLevel = $userGatheringLevel ? $userGatheringLevel->{$levelGetters[$category]}() : 0;
+        
+        // Base resource amount (5-15)
         $baseResourceAmount = mt_rand(self::MIN_RESOURCES, self::MAX_RESOURCES);
         
-        // Получаем текущую локацию персонажа и её тир (1-5)
+        // Get location tier (1-5)
         $location = $character->getLocation();
         // $locationTier = $location->getLevel() ?: 1; // Если тир не указан, используем 1
         $locationTier = 1;
@@ -402,7 +409,26 @@ class GatheringService
         
         // Обновляем опыт пользователя
         if ($userGatheringLevel) {
-            $userGatheringLevel->setExperience($currentExp + $totalExperience);
+            $expSetters = [
+                self::CATEGORY_ALCHEMY => 'setAlchemyExp',
+                self::CATEGORY_HUNT => 'setHuntingExp',
+                self::CATEGORY_MINE => 'setMinesExp',
+                self::CATEGORY_FISH => 'setFishingExp',
+                self::CATEGORY_FARM => 'setFarmExp'
+            ];
+
+            $expGetters = [
+                self::CATEGORY_ALCHEMY => 'getAlchemyExp',
+                self::CATEGORY_HUNT => 'getHuntingExp',
+                self::CATEGORY_MINE => 'getMinesExp',
+                self::CATEGORY_FISH => 'getFishingExp',
+                self::CATEGORY_FARM => 'getFarmExp'
+            ];
+            
+            // Get current skill level (default to 0 if not found)
+            $skillExp = $userGatheringLevel ? $userGatheringLevel->{$expGetters[$category]}() : 0;
+            $gatherFinExpWithCurrent = $skillExp + $totalExperience;
+            $userGatheringLevel->{$expSetters[$category]}($gatherFinExpWithCurrent);
             $this->entityManager->flush();
         }
         
@@ -415,21 +441,20 @@ class GatheringService
         
         foreach ($collectedResources as $resourceName => $data) {
             $rarityIcon = $this->getRarityIcon($data['rarity']);
-            $message .= "{$rarityIcon} {$resourceName} x{$data['count']}\n";
+            $message .= "{$rarityIcon} {$data['resource']->getName()} x{$data['amount']}\n";
         }
         
-        $message .= "\nExperience gained: +{$totalXP} XP";
-        if ($gatheringLevel) {
-            $message .= "\nCurrent {$this->getCategoryDisplayName($category)} level: {$gatheringLevel->getLevel()}";
-            $message .= "\nCurrent XP: {$gatheringLevel->getExperience()}";
+        $message .= "\nExperience gained: +{$totalExperience} XP";
+        if ($userGatheringLevel) {
+            $message .= "\nCurrent {$this->getCategoryDisplayName($category)} level: {$skillLevel}";
+            $message .= "\nCurrent XP: {$gatherFinExpWithCurrent}";
         }
 
         $location = $character->getLocation();
-        $locationType = $location->getType();
         
         return [
             'message' => $message,
-            'keyboard' => $this->buttonService->getKeyboardForLocation($locationType)
+            'keyboard' => $this->buttonService->getKeyboardForLocation($location)
         ];
     }
     
